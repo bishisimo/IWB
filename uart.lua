@@ -10,10 +10,9 @@ gpio.trig(
     "down",
     function()
         if bit.band(Wk2142ReadReg(1, 0x0B), 0x08) ~= 0 then
-            
             local data = {}
             local len = Wk2142ReadReg(1, 0x0a)
-            print("@len1", len)
+            -- print("@len1", len)
             for i = 1, len do
                 data[i] = Wk2142ReadReg(1, 0x0d)
                 -- print("1->", data[i], ":", string.char(data[i]))
@@ -25,11 +24,8 @@ gpio.trig(
                 receive_analysis_result.OB = (bit.lshift(data[8], 8) + data[7]) * 0.1
                 --------------------------------------------------------------------------------
                 if readMark_enable then --如果启用读数据
-                    local webData = sjson.encoder(receive_analysis_result)
-                    local ok, jsonData = pcall(webData.read, webData)
-                    if ok then
-                        publish(pubTopic, jsonData) --通过主题发布
-                    end
+                    local jsonData = sjson.encoder(receive_analysis_result)
+                    publish(pubTopic, jsonData:read()) --通过主题发布
                     readMark_enable = false
                 end
                 ---------------------------------------------------------------------------------
@@ -48,13 +44,13 @@ gpio.trig(
                     --插补算法控制加热曲线
                     datapoint.PV = receive_analysis_result.PV
                     datapoint.SV = work_process.SV
-                    if work_process.setTime then    --如果设定了加温时间
-                        local per_tem = (work_process.SV - datapoint.PV) / work_process.setTime    --计算间隔温度
-                        interval = work_process.setTime / times    --计算每次调整温度间隔时间
-                        print("@interval",interval)
+                    if work_process.setTime then --如果设定了加温时间
+                        local per_tem = (work_process.SV - datapoint.PV) / work_process.setTime --计算间隔温度
+                        interval = work_process.setTime / times --计算每次调整温度间隔时间
+                        -- print("@interval", interval)
                         for i = 1, times do
-                            table.insert(target_process, per_tem * interval * i + datapoint.PV)
-                            print("@target_process", target_process[i])
+                            target_process[i]=per_tem * interval * i + datapoint.PV
+                            print("@target_process", i,target_process[i])
                         end
                     else
                         table.insert(target_process, datapoint.SV)
@@ -65,15 +61,15 @@ gpio.trig(
                     --初始化]]
                     ------------------------------------------------------------------------
                     --[开启数据点上报
-                    timer_updata = tmr.create()
-                    --创建定时器,读当前温度并上传
+                    timer_updata = tmr.create() --创建定时器,读当前温度并上传
                     timer_updata:alarm(
                         5000,
                         tmr.ALARM_SEMI,
-                        function(t)
+                        function()
+                            -- print("@timer_updata",timer_updata)
                             read_slave("SV")
                             updata_enable = true
-                            t:start()
+                            timer_updata:start()
                         end
                     )
                     --开启数据点上报]
@@ -81,19 +77,19 @@ gpio.trig(
                     --[下位机执行
                     hmi_send("page1.cv.val", target_process[1])
                     write_slave({SV = table.remove(target_process, 1), SRUN = 0})
-                    --分段写入
                     if #target_process > 0 then --需要多次写入时,按时间间隔重设定温度
-                        print("@#target_process", #target_process)
+                        -- print("@#target_process", #target_process)
                         timer_control = tmr.create()
                         timer_control:alarm(
                             interval * 60000,
                             tmr.ALARM_SEMI,
-                            function(t)
+                            function()
                                 if #target_process > 0 then
+                                    -- print("@timer_control",timer_control)
                                     hmi_send("page1.cv.val", target_process[1])
                                     datapoint.CV = target_process[1] + 0.001
                                     write_slave({SV = table.remove(target_process, 1)})
-                                    t:start()
+                                    timer_control:start()
                                 end
                             end
                         )
@@ -104,7 +100,7 @@ gpio.trig(
                 ------------------------------------------------------------------------
                 --上传数据点
                 ------------------------------------------------------------------------
-                if updata_enable then
+                if updata_enable and m then
                     datapoint.PV = receive_analysis_result.PV + 0.001
                     hmi_send("page1.pv.val", datapoint.PV)
                     datapoint.cur_time = tmr.time() - datapoint.start_time
@@ -127,10 +123,32 @@ gpio.trig(
         if bit.band(Wk2142ReadReg(2, 0x0B), 0x08) ~= 0 then
             local data = {}
             local len = Wk2142ReadReg(2, 0x0a)
-            print("@len2", len)
+            -- print("@len2", len)
             for i = 1, len do
                 data[i] = Wk2142ReadReg(2, 0x0d)
-                print("2->", data[i], ":", string.char(data[i]))
+                -- print("2->", data[i], ":", string.char(data[i]))
+            end
+            if len == 1 then
+                if data[1] == 1 then
+                    only_run()
+                else
+                    stop_work()
+                end
+            elseif len == 5 then
+                stop_work()
+                work_process.SV = data[1]
+                local setTime = (bit.lshift(data[3], 8) + data[2])
+                local appointment = (bit.lshift(data[5], 8) + data[4])
+                if setTime > 0 then
+                    work_process.setTime = setTime
+                end
+                if appointment > 0 then
+                    work_process.appointment = appointment
+                end
+                -- for k, v in pairs(work_process) do
+                    -- print("@work_process", k, v)
+                -- end
+                start_work()
             end
         end
     end

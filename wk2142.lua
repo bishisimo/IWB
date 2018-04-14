@@ -75,8 +75,13 @@ function uart1_send(data)
     uart_send(1, data)
     -- print("@uart1:", string.format("%x", data))
 end
-function hmi_send(s,value)
-    local data=s..'='..math.floor(value)
+function hmi_send(s,v)
+    local data
+    if type(v)=='number' then
+        data=s..'='..math.floor(v)
+    else
+        data=s..'="'..v..'"'
+    end
     uart_send(2, data)
     uart_send(2, 0xff)
     uart_send(2, 0xff)

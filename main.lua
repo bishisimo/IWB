@@ -68,14 +68,13 @@ local function startSTA()
     wifi.eventmon.register(
         wifi.eventmon.STA_GOT_IP,
         function()
-            print("STATION_GOT_IP")
-            print("staIP:" .. wifi.sta.getip())
+            print("STATION_GOT_IP:" .. wifi.sta.getip())
             sntp.sync(
                 "ntp1.aliyun.com",
                 function(sec, usec, server, info)
                     print("Time calibration success")
                     saveTime()
-                    print('@heap:',node.heap())
+                    print("@heap:", node.heap())
                 end,
                 function(code, info)
                     print("Time calibration failure->code:", code, "info:", info)
@@ -84,8 +83,20 @@ local function startSTA()
                 end,
                 1
             )
-            do_lua_or_lc("mqtt")
-            do_lua_or_lc = nil
+            m:connect(
+                "118.89.106.236",
+                1883,
+                0,
+                1,
+                function(client)
+                    print("IOT MQTT Server Connected")
+                    subscribe() --订阅预设的主预1�7
+                end,
+                function(client, reason)
+                    print("Failed reason: " .. reason)
+                    m:close()
+                end
+            )
             collectgarbage()
         end
     )
@@ -104,22 +115,21 @@ local function smart() --配置WiFi信息
     )
 end
 -----------------------------------------------------------------------------------------------------------
-
-function do_lua_or_lc(fileName)
-    if file.exists(fileName .. ".lua") then
-        dofile(fileName .. ".lua")
-    elseif file.exists(fileName .. ".lc") then
-        dofile(fileName .. ".lc")
-    else
-        print(fileName, "not exists!")
-    end
-end
+-- function do_lua_or_lc(fileName)
+--     if file.exists(fileName .. ".lua") then
+--         dofile(fileName .. ".lua")
+--     elseif file.exists(fileName .. ".lc") then
+--         dofile(fileName .. ".lc")
+--     else
+--         print(fileName, "not exists!")
+--     end
+-- end
 -----------------------------------------------------------------------------------------------------------
 i2c.setup(0, 1, 2, i2c.SLOW)
 require("wk2142")
 Wk2142Init()
-Wk2142Init=nil
-collectgarbage()
+Wk2142Init = nil
+collectgarbage("collect")
 -----------------------------------------
 -- gpio.mode(0, gpio.OUTPUT)
 -- gpio.write(0, gpio.HIGH)
@@ -135,11 +145,10 @@ else
 end
 ----------初始化GPIO--------------------------------
 require("slave")
+dofile("mqtt.lc")
 require("process")
-do_lua_or_lc("uart")
+dofile("uart.lc")
 RS485_RE = 0
 gpio.mode(RS485_RE, gpio.OUTPUT)
-hmi_send("page1.sv.val",0)
-hmi_send("page1.cv.val",0)
-write_slave({SRUN = 1})
+stop_work()
 collectgarbage()

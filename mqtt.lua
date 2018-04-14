@@ -1,7 +1,7 @@
 --mqtt.lua
 -----------------------------连接信息
-local url = "118.89.106.236"
-local port = 1883
+-- local url = "118.89.106.236"
+-- local port = 1883
 local cliendId = "tester5"
 local user = "tester5"
 local psw = "tester"
@@ -12,8 +12,8 @@ subTopic = "master_computer"
 --发布主题列表
 pubTopic = "slave_computer"
 ----------------------------------------------------
---              ID        建立连接的时间 s  用户名      密码
-m = mqtt.Client(DeviceID, 180, ProductID, AuthInfo) --创建MQTT客户机
+--              ID        建立连接的时间  用户名      密码
+m = mqtt.Client(cliendId, 180, user, psw) --创建MQTT客户端
 m:on(
     "connect",
     function(client) --连接成功
@@ -41,22 +41,6 @@ m:on(
     end
 )
 --------------------------------------------------------------------
-m:connect(
-    url,
-    port,
-    0,
-    1,
-    function(client)
-        print("IOT MQTT Server Connected")
-        subscribe()
-        subscribe = nil
-        collectgarbage()
-        --订阅预设的主题
-    end,
-    function(client, reason)
-        print("Failed reason: " .. reason)
-    end
-)
 --------------------------------------------------------------------
 function subscribe() --订阅,无需修改
     m:subscribe(
@@ -70,7 +54,7 @@ end
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
-function publish(pubTopic, data) --!!!发布消息,在串口回调里使用此接口将调试信息发送至主题!!!
+function publish(pubTopic, data) --!!!发布消息,在串口回调里使用此接口将调试信息发��至主题!!!
     m:publish(
         pubTopic,
         data,
@@ -82,7 +66,7 @@ function publish(pubTopic, data) --!!!发布消息,在串口回调里使用此�
 end
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
-function pubStream(stream) --上传数据流
+function pubStream(stream) --上传数据
     -- local tableTime = rtctime.epoch2cal(rtctime.get())
     local data = {}
     data.measurement = "Temperature"
@@ -124,26 +108,7 @@ end
 {"test":"this is just test"}
 {"cmd":"uart_enter","test":"this is just test"}
 ]]
-function data_handle(topic, datas) --解析并执行指令,修改这里完善接口
-    -- print("@data_handle",type(datas),datas)
-    if type(datas) == table then
-        for _, data in pairs(datas) do
-            data_handle_base(data)
-        end
-    else
-        data_handle_base(datas)
-    end
-end
-
-function data_handle_base(data)
-    -- if type(data)=="table"then
-    --     for k,v in pairs(data) do
-    --         print("@data_handle_base",k,v)
-    --     end
-    -- else
-    --     print("@data_handle_base",data)
-    -- end
-
+function data_handle(topic, data) --解析并执行指令,修改这里完善接口
     if data.cmd == "OTA" then --空中升级
         if data.fileFlag ~= nil and data.fileFlag == "start" then
             fileOTA = file.open(data.fileName, "w")
@@ -157,34 +122,21 @@ function data_handle_base(data)
             end
         end
     elseif data.cmd == "stop" then
-        -- timer_updata = nil
-        -- timer_control = nil
-        work_enable = false
-        write_slave({SRUN = 1})
-        -- print("@work_enable",work_enable)
-        -- work_enable = false
-        -- print("@mqtt",type(timer_updata),timer_updata)
-        -- print("@mqtt",type(timer_control),timer_control)
-        if timer_updata then
-            tmr.unregister(timer_updata)
-        end
-        if timer_control then
-            tmr.unregister(timer_control)
-        end
+        stop_work()
     elseif data.cmd == "run" then
-        write_slave({SRUN = 0})
+        only_run()
     elseif data.cmd == "test" then
         print(data.cmd)
         publish(pubTopic, "test success!")
     end
 
-    if data.read_mark then --读信息
-        print("@read_mark:",data.read_mark)
+    if data.read_mark then --读取信息
+        print("@read_mark:", data.read_mark)
         read_slave(data.read_mark)
         readMark_enable = true
     end
     ------------------------------------------------
-    --写信息
+    --写入信息
     --arg:{"write_mark":{"SV":"60","P":"25"}}
     ------------------------------------------------
     if data.write_mark then
@@ -195,16 +147,7 @@ function data_handle_base(data)
     --arg:{"work_process":[{"SV":"60"},{"setTime":"10"},{"appointment":"1"}]}
     ------------------------------------------------
     if data.work_process then
-        for k in pairs(work_process) do
-            if data.work_process[k] then
-                work_process[k] = data.work_process[k]
-            end
-        end
-        work_enable = true
-        if data.work_process.appointment then
-            appointment_handle() --预约
-        else
-            execute() --立即执行
-        end
+        stop_work()
+        start_work(data)
     end
 end

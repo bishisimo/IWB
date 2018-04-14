@@ -9,10 +9,10 @@
     )
     return resultStrList
 end
-
+print(node.bootreason())
 for fileName in pairs(file.list()) do
     local list = split(fileName, ".")
-    if list[2] == "lua" and list[1] ~= "uart" and list[1] ~= "mqtt" then
+    if list[2] == "lua" then
         node.compile(fileName)
         file.remove(fileName)
     end
