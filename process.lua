@@ -44,11 +44,6 @@ function start_work(data)
             end
         end
     end
-    appointment_handle() --预约
-end
-
---预约
-function appointment_handle()
     work_enable = true
     print("@appointment,working...")
     hmi_send("page0.bt0.txt", "预约中")
@@ -57,18 +52,13 @@ function appointment_handle()
         tmr.ALARM_SINGLE,
         function()
             if work_enable then
-                execute()
+                print("@immediately,working...")
+                hmi_send("page0.bt0.val", 1)
+                hmi_send("page0.bt0.txt", "运行中")
+                hmi_send("page1.sv.val", work_process.SV)
+                read_slave("SV")
+                exe_enable = true
             end
         end
     )
-end
-
---ִ执行加热程序
-function execute()
-    print("@immediately,working...")
-    hmi_send("page0.bt0.val", 1)
-    hmi_send("page0.bt0.txt", "运行中")
-    hmi_send("page1.sv.val", work_process.SV)
-    read_slave("SV")
-    exe_enable = true
 end

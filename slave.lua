@@ -105,18 +105,6 @@ function send_handle(mark, value)
     data[7]=bit.clear(checkout, 8, 9, 10, 11, 12, 13, 14, 15)
     data[8]=bit.rshift(checkout, 8)
     gpio.write(RS485_RE, gpio.HIGH) --拉高RE引脚
-    -- uart1_send(0x81) --发送数据
-    -- uart1_send(0x81) --发送数据
-    -- uart1_send(address) --发送数据
-    -- uart1_send(mark) --发送数据
-    -- uart1_send(value and bit.clear(value, 8, 9, 10, 11, 12, 13, 14, 15) or 0x00) --发送数据
-    -- uart1_send(value and bit.rshift(value, 8) or 0x00) --发送数据
-    -- uart1_send(bit.clear(checkout, 8, 9, 10, 11, 12, 13, 14, 15)) --发送数据
-    -- uart1_send(bit.rshift(checkout, 8)) --发送数据
-    -- for _,v in ipairs(data) do
-    --     uart1_send(v)
-    --     for i=1,10000 do end
-    -- end
     tmr.create():alarm(
         10,
         tmr.ALARM_SEMI,

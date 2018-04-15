@@ -1,6 +1,4 @@
 receive_analysis_result = {}
-recv_ready = false
-recv_enable = false
 datapoint = {}
 readMark_enable = false --读数据使能
 exe_enable = false --加热程序使能
@@ -90,6 +88,8 @@ gpio.trig(
                                     datapoint.CV = target_process[1] + 0.001
                                     write_slave({SV = table.remove(target_process, 1)})
                                     timer_control:start()
+                                else
+                                    datapoint.end_time = tmr.time()
                                 end
                             end
                         )
@@ -104,7 +104,6 @@ gpio.trig(
                     datapoint.PV = receive_analysis_result.PV + 0.001
                     hmi_send("page1.pv.val", datapoint.PV)
                     datapoint.cur_time = tmr.time() - datapoint.start_time
-                    -- print("@curtime", datapoint.cur_time)
                     local encoder = sjson.encoder(datapoint)
                     local ok, jsonData = pcall(encoder.read, encoder)
                     if ok then
@@ -117,16 +116,13 @@ gpio.trig(
                 read_slave("SV")
             end
         end
-        -- print("1->", recv_ready, ":", data)
         ------------------------------------------------------------------
         ------------------------------------------------------------------
         if bit.band(Wk2142ReadReg(2, 0x0B), 0x08) ~= 0 then
             local data = {}
             local len = Wk2142ReadReg(2, 0x0a)
-            -- print("@len2", len)
             for i = 1, len do
                 data[i] = Wk2142ReadReg(2, 0x0d)
-                -- print("2->", data[i], ":", string.char(data[i]))
             end
             if len == 1 then
                 if data[1] == 1 then

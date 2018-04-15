@@ -82,9 +82,9 @@ function pubStream(stream) --上传数据
     -- end
     -------------------------------------------------------
     --将格式表打包成JSON并上传数据流
-    local webData = sjson.encoder(data)
-    local ok, buf = pcall(webData.read, webData)
-    if ok and m ~= nil then
+    local jsonData = sjson.encoder(data)
+    local buf = jsonData:read()
+    if m then
         m:publish(
             "$dp",
             buf,

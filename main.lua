@@ -13,13 +13,9 @@ local function saveCfgSTA(ssid, psw)
 end
 -------------------------------------------
 function saveTime()
-    local mTime = {}
-    mTime.sec, mTime.usec = rtctime.get()
+    local sec = rtctime.get()
     file.open("time.lua", "w+")
-    file.writeline("mTime={}")
-    file.writeline("mTime.sec='" .. mTime.sec .. "'")
-    file.writeline("mTime.usec='" .. mTime.usec .. "'")
-    file.writeline("return mTime")
+    file.writeline("sec='" .. sec .. "'")
     file.flush()
     file.close()
     -- compile("time.lua")
@@ -79,7 +75,8 @@ local function startSTA()
                 function(code, info)
                     print("Time calibration failure->code:", code, "info:", info)
                     require("time")
-                    rtctime.set(mTime.sec, mTime.usec)
+                    rtctime.set(sec)
+                    sec=nil
                 end,
                 1
             )
@@ -90,7 +87,7 @@ local function startSTA()
                 1,
                 function(client)
                     print("IOT MQTT Server Connected")
-                    subscribe() --订阅预设的主预1�7
+                    subscribe() --订阅预设的主题
                 end,
                 function(client, reason)
                     print("Failed reason: " .. reason)
