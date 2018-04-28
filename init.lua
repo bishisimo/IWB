@@ -12,10 +12,10 @@ end
 print(node.bootreason())
 for fileName in pairs(file.list()) do
     local list = split(fileName, ".")
-    if list[2] == "lua" then
+    if list[2] == "lua" and (list[1]~="init" or list[1]~="time") then
         node.compile(fileName)
         file.remove(fileName)
     end
 end
-collectgarbage()
+collectgarbage("collect")
 dofile('main.lc')

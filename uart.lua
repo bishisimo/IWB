@@ -7,12 +7,12 @@ gpio.trig(
     3,
     "down",
     function()
-        if bit.band(Wk2142ReadReg(1, 0x0B), 0x08) ~= 0 then
+        if bit.band(wk_readReg(1, 0x0B), 0x08) ~= 0 then
             local data = {}
-            local len = Wk2142ReadReg(1, 0x0a)
+            local len = wk_readReg(1, 0x0a)
             -- print("@len1", len)
             for i = 1, len do
-                data[i] = Wk2142ReadReg(1, 0x0d)
+                data[i] = wk_readReg(1, 0x0d)
                 -- print("1->", data[i], ":", string.char(data[i]))
             end
             if len == 10 then
@@ -47,8 +47,8 @@ gpio.trig(
                         interval = work_process.setTime / times --计算每次调整温度间隔时间
                         -- print("@interval", interval)
                         for i = 1, times do
-                            target_process[i]=per_tem * interval * i + datapoint.PV
-                            print("@target_process", i,target_process[i])
+                            target_process[i] = per_tem * interval * i + datapoint.PV
+                            print("@target_process", i, target_process[i])
                         end
                     else
                         table.insert(target_process, datapoint.SV)
@@ -104,11 +104,9 @@ gpio.trig(
                     datapoint.PV = receive_analysis_result.PV + 0.001
                     hmi_send("page1.pv.val", datapoint.PV)
                     datapoint.cur_time = tmr.time() - datapoint.start_time
+                    datapoint.time=rtctime.get()
                     local encoder = sjson.encoder(datapoint)
-                    local ok, jsonData = pcall(encoder.read, encoder)
-                    if ok then
-                        saveLog(jsonData)
-                    end
+                    saveLog(encoder:read())
                     pubStream(datapoint)
                     updata_enable = false
                 end
@@ -118,11 +116,11 @@ gpio.trig(
         end
         ------------------------------------------------------------------
         ------------------------------------------------------------------
-        if bit.band(Wk2142ReadReg(2, 0x0B), 0x08) ~= 0 then
+        if bit.band(wk_readReg(2, 0x0B), 0x08) ~= 0 then
             local data = {}
-            local len = Wk2142ReadReg(2, 0x0a)
+            local len = wk_readReg(2, 0x0a)
             for i = 1, len do
-                data[i] = Wk2142ReadReg(2, 0x0d)
+                data[i] = wk_readReg(2, 0x0d)
             end
             if len == 1 then
                 if data[1] == 1 then
@@ -138,13 +136,15 @@ gpio.trig(
                 if setTime > 0 then
                     work_process.setTime = setTime
                 end
-                if appointment > 0 then
+                -- if appointment > 0 then
                     work_process.appointment = appointment
-                end
-                -- for k, v in pairs(work_process) do
-                    -- print("@work_process", k, v)
                 -- end
                 start_work()
+            elseif len == 6 then
+                if data[1] == 99 then
+                    wifi.sta.clearconfig()
+                    enduser_setup.start()
+                end
             end
         end
     end

@@ -1,4 +1,4 @@
-function Wk2142WriteReg(dev_addr, reg_addr, data)
+function wk_writeReg(dev_addr, reg_addr, data)
     local addr = 0x00 + bit.lshift(1, 5) + bit.lshift(dev_addr - 1, 2)
     i2c.start(0)
     --iic起始时序
@@ -13,7 +13,7 @@ function Wk2142WriteReg(dev_addr, reg_addr, data)
     --iic结束时序
 end
 -- user defined function then read from reg_addr content of dev_addr
-function Wk2142ReadReg(dev_addr, reg_addr)
+function wk_readReg(dev_addr, reg_addr)
     local addr = 0x00 + bit.lshift(1, 5) + bit.lshift(dev_addr - 1, 2)
     i2c.start(0)
     -- rck=i2c.address(0, addr, i2c.TRANSMITTER)
@@ -31,44 +31,46 @@ function Wk2142ReadReg(dev_addr, reg_addr)
     return string.byte(c)
 end
 
-function Wk2142Init()
-    Wk2142WriteReg(1, 0x00, 0x03) --使能子串口时钟
-    Wk2142WriteReg(1, 0x01, 0x03) --软件复位子串口
-    Wk2142WriteReg(2, 0x10, 0x03) --使能子串口中断，包括子串口总中断和子串口内部的接收中断，和设置中断触点
+function wk_init()
+    i2c.setup(0, 1, 2, i2c.SLOW)
+    wk_writeReg(1, 0x00, 0x03) --使能子串口时钟
+    wk_writeReg(1, 0x01, 0x03) --软件复位子串口
+    wk_writeReg(2, 0x10, 0x03) --使能子串口中断，包括子串口总中断和子串口内部的接收中断，和设置中断触点
     ------------------------------------------------------------------------------
-    Wk2142WriteReg(1, 0x07, 0x03) -- 初始化FIFO和设置固定中断触点
-    Wk2142WriteReg(1, 0x06, 0XFF) --设置任意中断触点，如果下面的设置有效，那么上面FCR寄存器中断的固定中断触点将失效
-    Wk2142WriteReg(1, 0x03, 1) --切换到page1
-    -- Wk2142WriteReg(1, 0x07, 0X0a)--设置接收触点为64个字节
-    -- Wk2142WriteReg(1, 0x08, 0X10)--设置发送触点为16个字节
+    wk_writeReg(1, 0x07, 0x03) -- 初始化FIFO和设置固定中断触点
+    wk_writeReg(1, 0x06, 0XFF) --设置任意中断触点，如果下面的设置有效，那么上面FCR寄存器中断的固定中断触点将失效
+    wk_writeReg(1, 0x03, 1) --切换到page1
+    -- wk_writeReg(1, 0x07, 0X0a)--设置接收触点为64个字节
+    -- wk_writeReg(1, 0x08, 0X10)--设置发送触点为16个字节
     --配置波特率(9600)
-    Wk2142WriteReg(1, 0x04, 0x00)
-    Wk2142WriteReg(1, 0x05, 0x47)
+    wk_writeReg(1, 0x04, 0x00)
+    wk_writeReg(1, 0x05, 0x47)
     --
-    Wk2142WriteReg(1, 0x03, 0) --切换到page0
-    Wk2142WriteReg(1, 0x04, 0x03) --使能子串口的发送和接收使能
+    wk_writeReg(1, 0x03, 0) --切换到page0
+    wk_writeReg(1, 0x04, 0x03) --使能子串口的发送和接收使能
     -------------------------------------------------------------------------------
-    Wk2142WriteReg(2, 0x07, 0x03) -- 初始化FIFO和设置固定中断触点
-    Wk2142WriteReg(2, 0x06, 0XFF) --设置任意中断触点，如果下面的设置有效，那么上面FCR寄存器中断的固定中断触点将失效
-    Wk2142WriteReg(2, 0x03, 1) --切换到page1
-    -- Wk2142WriteReg(2, 0x07, 0X06)--设置接收触点为6个字节
-    -- Wk2142WriteReg(2, 0x08, 0X10)--设置发送触点为16个字节
+    wk_writeReg(2, 0x07, 0x03) -- 初始化FIFO和设置固定中断触点
+    wk_writeReg(2, 0x06, 0XFF) --设置任意中断触点，如果下面的设置有效，那么上面FCR寄存器中断的固定中断触点将失效
+    wk_writeReg(2, 0x03, 1) --切换到page1
+    -- wk_writeReg(2, 0x07, 0X06)--设置接收触点为6个字节
+    -- wk_writeReg(2, 0x08, 0X10)--设置发送触点为16个字节
     --配置波特率(115200)
-    Wk2142WriteReg(2, 0x04, 0x00)
-    Wk2142WriteReg(2, 0x05, 0x05)
+    wk_writeReg(2, 0x04, 0x00)
+    wk_writeReg(2, 0x05, 0x05)
     --
-    Wk2142WriteReg(2, 0x03, 0) --切换到page0
-    Wk2142WriteReg(2, 0x04, 0x03) --使能子串口的发送和接收使能
+    wk_writeReg(2, 0x03, 0) --切换到page0
+    wk_writeReg(2, 0x04, 0x03) --使能子串口的发送和接收使能
+    wk_init=nil
 end
 
 function uart_send(port, data)
     if type(data) == "string" then
         n = string.len(data)
         for i = 1, n do
-            Wk2142WriteReg(port, 0x0D, string.sub(data, i, i))
+            wk_writeReg(port, 0x0D, string.sub(data, i, i))
         end
     else
-        Wk2142WriteReg(port, 0x0D, data)
+        wk_writeReg(port, 0x0D, data)
     end
 end
 function uart1_send(data)

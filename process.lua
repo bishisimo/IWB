@@ -1,7 +1,7 @@
 work_process = {}
 work_process.SV = 0
 work_process.setTime = false
-work_process.appointment = 1
+work_process.appointment = 0
 work_enable = false
 function saveLog(s)
     file.open("log", "a")
@@ -10,17 +10,27 @@ function saveLog(s)
     file.close()
 end
 
+function online()
+    hmi_send("page0.t2.bco", 2047)
+    hmi_send("page0.t2.txt", "online")
+end
+
+function offline()
+    hmi_send("page0.t2.bco", 64528)
+    hmi_send("page0.t2.txt", "offline")
+end
+
 function only_run()
     write_slave({SRUN = 0})
     hmi_send("page0.bt0.val", 1)
-    hmi_send("page0.bt0.txt", "运行中")
+    hmi_send("page0.bt0.txt", "Turn OFF")
 end
 
 function stop_work()
     work_enable = false
     exe_enable = false
     work_process.setTime = false
-    work_process.appointment = 1
+    work_process.appointment = 0
     write_slave({SRUN = 1})
     if timer_updata then
         timer_updata:unregister(timer_updata)
@@ -32,7 +42,7 @@ function stop_work()
     hmi_send("page1.pv.val", 0)
     hmi_send("page1.cv.val", 0)
     hmi_send("page0.bt0.val", 0)
-    hmi_send("page0.bt0.txt", "空闲中")
+    hmi_send("page0.bt0.txt", "Turn ON")
 end
 
 function start_work(data)
@@ -46,15 +56,16 @@ function start_work(data)
     end
     work_enable = true
     print("@appointment,working...")
-    hmi_send("page0.bt0.txt", "预约中")
+    hmi_send("page0.bt0.val", 1)
+    hmi_send("page0.bt0.txt", "Waiting")
     tmr.create():alarm(
-        work_process.appointment * 1000,
+        work_process.appointment * 1000*60+1000,
         tmr.ALARM_SINGLE,
         function()
             if work_enable then
                 print("@immediately,working...")
                 hmi_send("page0.bt0.val", 1)
-                hmi_send("page0.bt0.txt", "运行中")
+                hmi_send("page0.bt0.txt", "Turn OFF")
                 hmi_send("page1.sv.val", work_process.SV)
                 read_slave("SV")
                 exe_enable = true

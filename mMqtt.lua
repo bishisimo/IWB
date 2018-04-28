@@ -2,9 +2,9 @@
 -----------------------------连接信息
 -- local url = "118.89.106.236"
 -- local port = 1883
-local cliendId = "tester5"
-local user = "tester5"
-local psw = "tester"
+-- local cliendId = "tester5"
+-- local user = "tester5"
+-- local psw = "tester"
 ---------------------------------------------------在这里添加订阅消息的主题
 --订阅主题列表
 subTopic = "master_computer"
@@ -13,56 +13,67 @@ subTopic = "master_computer"
 pubTopic = "slave_computer"
 ----------------------------------------------------
 --              ID        建立连接的时间  用户名      密码
-m = mqtt.Client(cliendId, 180, user, psw) --创建MQTT客户端
-m:on(
-    "connect",
-    function(client) --连接成功
-        print("MQTT Server Connected")
-    end
-)
-m:on(
-    "offline",
-    function(client) --下线
-        print("MQTT Server Offline")
-    end
-)
-m:on(
-    "message",
-    function(client, topic, data) --接收消息回掉函数
-        if data ~= nil then --接收到数据
-            local decoder = sjson.decoder() --实例化decoder对象
-            ok, info = pcall(decoder.write, decoder, data) --安全执行函数
-            if ok then
-                data_handle(topic, info)
-            else
-                data_handle(topic, data)
+function mqtt_init()
+    local mqtt_config = require("config").mqtt
+    m = mqtt.Client(mqtt_config.cliendId, 180, mqtt_config.user, mqtt_config.psw) --创建MQTT客户端
+    -- m:on(
+    --     "connect",
+    --     function(client) --连接成功
+    --         print("MQTT Server Connected")
+    --     end
+    -- )
+    -- m:on(
+    --     "offline",
+    --     function(client) --下线
+    --         print("MQTT Server Offline")
+    --     end
+    -- )
+    m:on(
+        "message",
+        function(client, topic, data) --接收消息回掉函数
+            if data ~= nil then --接收到数据
+                local decoder = sjson.decoder() --实例化decoder对象
+                ok, info = pcall(decoder.write, decoder, data) --安全执行函数
+                if ok then
+                    data_handle(topic, info)
+                else
+                    data_handle(topic, data)
+                end
             end
         end
-    end
-)
---------------------------------------------------------------------
---------------------------------------------------------------------
-function subscribe() --订阅,无需修改
-    m:subscribe(
-        subTopic,
-        0,
-        function(client)
-            print("Subscribe topic ", subTopic, " success")
-        end
     )
+    mqtt_init = nil
 end
----------------------------------------------------------------------
----------------------------------------------------------------------
----------------------------------------------------------------------
-function publish(pubTopic, data) --!!!发布消息,在串口回调里使用此接口将调试信息发��至主题!!!
-    m:publish(
-        pubTopic,
-        data,
-        1,
-        0,
+
+function mqtt_connect()
+    -- if not m then
+    local mqtt_config = require("config").mqtt
+    m:connect(
+        mqtt_config.url,
+        1883,
         function(client)
+            print("IOT MQTT Server Connected")
+            m:subscribe(subTopic,0) --订阅预设的主题
         end
+        -- function(client, reason)
+        --     print("Failed reason: " .. reason)
+        --     m:close()
+        -- end
     )
+    -- end
+end
+--------------------------------------------------------------------
+--------------------------------------------------------------------
+-- function subscribe() --订阅,无需修改
+--     m:subscribe(subTopic)
+-- end
+---------------------------------------------------------------------
+---------------------------------------------------------------------
+---------------------------------------------------------------------
+function publish(pubTopic, data) --!!!发布消息,在串口回调里使用此接口将调试信息发布至主题!!!
+    if m then
+        m:publish(pubTopic, data, 0, 0)
+    end
 end
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
@@ -83,17 +94,8 @@ function pubStream(stream) --上传数据
     -------------------------------------------------------
     --将格式表打包成JSON并上传数据流
     local jsonData = sjson.encoder(data)
-    local buf = jsonData:read()
-    if m then
-        m:publish(
-            "$dp",
-            buf,
-            1,
-            0,
-            function(client)
-            end
-        )
-    end
+    -- local buf = jsonData:read()
+    publish("$dp", jsonData:read())
     --------------------------------------------------------
     -- if tableTime.year ~= 1970 then
     --     return jsonData
