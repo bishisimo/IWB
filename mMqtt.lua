@@ -33,7 +33,7 @@ function mqtt_init()
         function(client, topic, data) --接收消息回掉函数
             if data ~= nil then --接收到数据
                 local decoder = sjson.decoder() --实例化decoder对象
-                ok, info = pcall(decoder.write, decoder, data) --安全执行函数
+                local ok, info = pcall(decoder.write, decoder, data) --安全执行函数
                 if ok then
                     data_handle(topic, info)
                 else
@@ -53,7 +53,7 @@ function mqtt_connect()
         1883,
         function(client)
             print("IOT MQTT Server Connected")
-            m:subscribe(subTopic,0) --订阅预设的主题
+            m:subscribe(subTopic, 0) --订阅预设的主题
         end
         -- function(client, reason)
         --     print("Failed reason: " .. reason)
@@ -71,37 +71,22 @@ end
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
 function publish(pubTopic, data) --!!!发布消息,在串口回调里使用此接口将调试信息发布至主题!!!
-    if m then
+    if is_online then
         m:publish(pubTopic, data, 0, 0)
     end
 end
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
-function pubStream(stream) --上传数据
-    -- local tableTime = rtctime.epoch2cal(rtctime.get())
+function pubStream(buffstream) --上传数据
     local data = {}
     data.measurement = "Temperature"
     data.tags = {device = node.chipid()}
-    data.fields = stream
-    -- if tableTime.year ~= 1970 then
-    --     local time_Now =
-    --         tableTime.year ..
-    --         "-" ..
-    --             tableTime.mon ..
-    --                 "-" .. tableTime.day .. ";" .. tableTime.hour + 8 .. ":" .. tableTime.min .. ":" .. tableTime.sec
-    --     data[1].fields.timeNow = time_Now
-    -- end
+    data.fields = buffstream
+    data.time = buffstream.timestamp
     -------------------------------------------------------
     --将格式表打包成JSON并上传数据流
     local jsonData = sjson.encoder(data)
-    -- local buf = jsonData:read()
     publish("$dp", jsonData:read())
-    --------------------------------------------------------
-    -- if tableTime.year ~= 1970 then
-    --     return jsonData
-    -- else
-    --     return nil
-    -- end
 end
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
@@ -111,45 +96,75 @@ end
 {"cmd":"uart_enter","test":"this is just test"}
 ]]
 function data_handle(topic, data) --解析并执行指令,修改这里完善接口
-    if data.cmd == "OTA" then --空中升级
-        if data.fileFlag ~= nil and data.fileFlag == "start" then
-            fileOTA = file.open(data.fileName, "w")
-        end
-        fileOTA:write(data.data)
-        if data.fileFlag ~= nil and data.fileFlag == "end" then
-            fileOTA:flush()
-            fileOTA:close()
-            while true do
-                node.restart()
-            end
+    -- if data.cmd == "OTA" then --空中升级
+    --     if data.fileFlag ~= nil and data.fileFlag == "start" then
+    --         fileOTA = file.open(data.fileName, "w")
+    --     end
+    --     fileOTA:write(data.data)
+    --     if data.fileFlag ~= nil and data.fileFlag == "end" then
+    --         fileOTA:flush()
+    --         fileOTA:close()
+    --         while true do
+    --             node.restart()
+    --         end
+    --     end
+    if data.cmd == "on_off" then
+        if is_working then
+            stop_work()
+        else
+            only_run()
         end
     elseif data.cmd == "stop" then
         stop_work()
     elseif data.cmd == "run" then
         only_run()
-    elseif data.cmd == "test" then
-        print(data.cmd)
-        publish(pubTopic, "test success!")
-    end
-
-    if data.read_mark then --读取信息
-        print("@read_mark:", data.read_mark)
+    elseif data.cmd == "check" then
+        local state
+        if is_working and work_enable then
+            state = "2"
+        else
+            if is_working and not work_enable then
+                state = "1"
+            else
+                state = "0"
+            end
+        end
+        local jsonData = sjson.encoder({state = state})
+        publish(pubTopic, jsonData:read())
+    elseif data.cmd == "updata" then
+        local _line
+        for fileName in pairs(file.list()) do
+            if tonumber(fileName) then
+                file.open(fileName, "r")
+                file.seek(set)
+                repeat
+                    _line=file.readline()
+                    if (_line ~= nil) then
+                        -- print("@_line",_line)
+                        local decoder = sjson.decoder() --实例化decoder对象
+                        -- local info = decoder:write(_line) --安全执行函数
+                        pubStream(decoder:write(_line))
+                    end
+                until _line == nil
+                file.close()
+                -- file.remove(fileName)
+            end
+        end
+    elseif data.read_mark then --读取信息
         read_slave(data.read_mark)
         readMark_enable = true
+    elseif data.work_process then
+        stop_work()
+        start_work(data)
+    else
+        write_slave(data)
     end
     ------------------------------------------------
     --写入信息
     --arg:{"write_mark":{"SV":"60","P":"25"}}
     ------------------------------------------------
-    if data.write_mark then
-        write_slave(data.write_mark)
-    end
     ------------------------------------------------
     --设置工作任务
     --arg:{"work_process":[{"SV":"60"},{"setTime":"10"},{"appointment":"1"}]}
     ------------------------------------------------
-    if data.work_process then
-        stop_work()
-        start_work(data)
-    end
 end

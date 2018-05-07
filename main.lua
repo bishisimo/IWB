@@ -5,6 +5,7 @@ require("mMqtt")     --加载MQTT逻辑
 require("mWifi")     --加载WiFi逻辑
 require("process")  --加载处理逻辑
 require("slave")    --加载温控逻辑
+read_time()
 ----------------------配置wk串口------------------
 wk_init()
 ----------------------注册串口事件-----------------

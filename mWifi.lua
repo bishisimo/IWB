@@ -37,10 +37,10 @@ function wifi_init()
                 m:close()
             end
             -- if wifi_auth_enable then
-                -- wifi_auth_enable=false
-                -- print("@STA_DISCONNECTED")
-                offline()
-                -- wifi_auth()
+            -- wifi_auth_enable=false
+            -- print("@STA_DISCONNECTED")
+            offline()
+            -- wifi_auth()
             -- end
         end
     )
@@ -48,17 +48,16 @@ function wifi_init()
     wifi.eventmon.register(
         wifi.eventmon.STA_GOT_IP,
         function()
-            -- print("STATION_GOT_IP:" .. wifi.sta.getip())
-            -- wifi_auth_enable=true
             online()
             adjust_time()
             mqtt_connect()
         end
     )
-    local sta={}
-    sta.ssid,sta.pwd=wifi.sta.getdefaultconfig()
+
+    local sta = {}
     -- wifi.sta.config(require("config").wifi)
-    wifi.sta.config(sta)    
+    sta.ssid, sta.pwd = wifi.sta.getdefaultconfig()
+    wifi.sta.config(sta)
     -- wifi_auth()
     wifi_init = nil
 end
@@ -79,20 +78,19 @@ end
 -- end
 
 function adjust_time()
-    sntp.sync(
-        "ntp1.aliyun.com",
-        function(sec) --, usec, server, info
-            print("Time calibration success")
-            file.open("time.lua", "w+")
-            file.writeline("local sec='" .. sec .. "'")
-            file.writeline("return sec")
-            file.flush()
-            file.close()
-        end,
-        function(code, info)
-            print("Time calibration failure->code:", code, "info:", info)
-            rtctime.set(require("time"))
-        end,
-        1
-    )
+    sntp.sync("ntp1.aliyun.com", save_time, read_time, 1)
+end
+function save_time(sec) --, usec, server, info
+    print("Time calibration success")
+    file.open("time.lua", "w+")
+    file.writeline("local sec=" .. sec .. " return sec")
+    file.close()
+end
+function read_time()
+    local timestamp = require("time")
+    if timestamp > rtctime.get() then
+        rtctime.set(timestamp)
+    else
+        save_time(rtctime.get())
+    end
 end
